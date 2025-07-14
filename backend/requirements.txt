@@ -1,0 +1,12 @@
+Flask
+python-dotenv
+Flask-JWT-Extended
+pandas
+statsmodels
+prophet
+scikit-learn
+numpy
+transformers
+torch
+opencv-python-headless
+gunicorn
