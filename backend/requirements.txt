@@ -10,3 +10,4 @@ transformers
 torch
 opencv-python-headless
 gunicorn
+Werkzeug
