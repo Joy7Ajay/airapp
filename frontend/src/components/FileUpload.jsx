@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const FileUpload = () => {
+const FileUpload = ({ onDataProcessed }) => {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -32,6 +32,9 @@ const FileUpload = () => {
       if (response.ok) {
         setStatus(`File uploaded: ${data.filename}`);
         setFile(null);
+        if (onDataProcessed && data.data) {
+          onDataProcessed(data.data);
+        }
       } else {
         setError(data.error || 'Upload failed.');
       }

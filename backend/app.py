@@ -22,6 +22,7 @@ import logging
 import json
 from datetime import datetime
 import time
+import pandas as pd
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
@@ -199,14 +200,36 @@ def upload_file():
                 insert_notification(user_id, 'upload', 'File upload failed: No selected file.')
             return jsonify({'error': 'No selected file'}), 400
         filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
         if user_id:
             insert_uploaded_file(filename, user_id)
             insert_notification(user_id, 'upload', f'File "{filename}" uploaded successfully.')
             if user_email:
                 send_email_notification(user_email, 'File Uploaded', f'Your file "{filename}" was uploaded successfully.')
         logging.info(f"File uploaded: {filename} by user {user_id}")
-        return jsonify({'message': 'File uploaded successfully', 'filename': filename})
+
+        # --- New: Parse CSV and aggregate data ---
+        try:
+            df = pd.read_csv(filepath)
+            # Add age_group if 'age' column exists
+            if 'age' in df.columns:
+                df['age_group'] = df['age'].apply(lambda x: 'Child' if pd.to_numeric(x, errors='coerce') < 18 else 'Adult')
+            # Example aggregation: sum passengers and revenue if columns exist
+            total_passengers = int(df['passengers'].sum()) if 'passengers' in df.columns else None
+            total_revenue = float(df['revenue'].sum()) if 'revenue' in df.columns else None
+            rows = df.to_dict(orient='records')
+            processed = {
+                'total_passengers': total_passengers,
+                'total_revenue': total_revenue,
+                'rows': rows
+            }
+        except Exception as parse_err:
+            logging.error(f"CSV parse error: {parse_err}")
+            return jsonify({'error': 'File uploaded but could not parse CSV.'}), 400
+        # --- End new ---
+
+        return jsonify({'message': 'File uploaded and processed successfully', 'filename': filename, 'data': processed})
     except Exception as e:
         logging.error(f"File upload error: {e}")
         if user_id:

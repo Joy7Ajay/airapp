@@ -5,9 +5,10 @@ import {
 } from 'react-icons/ri';
 import * as echarts from "echarts";
 import { getPassengerPrediction, getAnomalies, getInsights } from '../api';
+import AppLogo from '../assets/react.svg';
 
 
-const Dashboard = () => {
+const Dashboard = ({ goToFileUpload, uploadedData }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [currentPeriod, setCurrentPeriod] = useState('June 26 - July 2, 2025');
   const [kpiData, setKpiData] = useState([]);
@@ -19,8 +20,57 @@ const Dashboard = () => {
   const [insights, setInsights] = useState([]);
   const [genderFilters, setGenderFilters] = useState({ Female: true, Male: true });
   const [ageFilters, setAgeFilters] = useState({ Child: true, Adult: true });
+  const [ageRange, setAgeRange] = useState({ min: '', max: '' });
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef();
+  // Add chart type state for each chart
+  const [passengerChartType, setPassengerChartType] = useState('line');
+  const [airlineChartType, setAirlineChartType] = useState('pie');
+  const [destinationChartType, setDestinationChartType] = useState('bar');
+  const [revenueChartType, setRevenueChartType] = useState('line');
+  const [openMenu, setOpenMenu] = useState(null); // which chart menu is open
+
+  // Helper to extract KPIs from uploaded data
+  const extractKpis = (data) => {
+    if (!data) return [];
+    // Calculate top airline and destination
+    let topAirline = '-';
+    let topAirlineCount = 0;
+    let topDestination = '-';
+    let topDestinationCount = 0;
+    let totalPassengers = data.total_passengers || 0;
+    const airlineCounts = {};
+    const destinationCounts = {};
+    (data.rows || []).forEach(row => {
+      const airline = row.airline || '-';
+      const dest = row.destination || '-';
+      const passengers = Number(row.passengers) || 0;
+      airlineCounts[airline] = (airlineCounts[airline] || 0) + passengers;
+      destinationCounts[dest] = (destinationCounts[dest] || 0) + passengers;
+    });
+    // Find top airline
+    for (const [airline, count] of Object.entries(airlineCounts)) {
+      if (count > topAirlineCount) {
+        topAirline = airline;
+        topAirlineCount = count;
+      }
+    }
+    // Find top destination
+    for (const [dest, count] of Object.entries(destinationCounts)) {
+      if (count > topDestinationCount) {
+        topDestination = dest;
+        topDestinationCount = count;
+      }
+    }
+    // Calculate market share for top airline
+    const airlineMarketShare = totalPassengers > 0 ? ((topAirlineCount / totalPassengers) * 100).toFixed(1) : '-';
+    return [
+      { label: 'Total Passengers', value: data.total_passengers?.toLocaleString() || '-', icon: <RiUserLine className="text-primary text-2xl" />, bg: 'bg-blue-100', color: 'text-primary', trend: 'up', percent: '', trendColor: 'text-green-600', sub: '' },
+      { label: 'Top Airline', value: topAirline, icon: <RiPlaneLine className="text-green-600 text-2xl" />, bg: 'bg-green-100', color: 'text-green-600', trend: 'up', percent: airlineMarketShare !== '-' ? `${airlineMarketShare}% market share` : '-', trendColor: 'text-green-600', sub: airlineMarketShare !== '-' ? `${airlineMarketShare}% market share` : '-' },
+      { label: 'Top Destination', value: topDestination, icon: <RiMapPinLine className="text-purple-600 text-2xl" />, bg: 'bg-purple-100', color: 'text-purple-600', trend: 'up', percent: '', trendColor: 'text-green-600', sub: topDestinationCount ? `${topDestinationCount.toLocaleString()} passengers` : '-' },
+      { label: 'Total Revenue', value: data.total_revenue ? `$${data.total_revenue.toLocaleString()}` : '-', icon: <RiMoneyDollarCircleLine className="text-amber-600 text-2xl" />, bg: 'bg-amber-100', color: 'text-amber-600', trend: 'up', percent: '', trendColor: 'text-green-600', sub: '' },
+    ];
+  };
 
   const handlePeriodChange = (period) => {
     setSelectedPeriod(period);
@@ -51,64 +101,179 @@ const Dashboard = () => {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      // Mock historical data for prediction
-      const historicalData = {
-        // This would be real data from your DB
-        '2025-07-01': 18500, '2025-07-02': 16800, '2025-07-03': 19200,
-        '2025-07-04': 21500, '2025-07-05': 23200, '2025-07-06': 24800,
-        '2025-07-07': 21300,
-      };
-
-      const prediction = await getPassengerPrediction(historicalData);
-      const anomalies = await getAnomalies({
-        passengers: [18500, 16800, 19200, 21500, 23200, 24800, 21300, 25000],
-        revenue: [120000, 110000, 130000, 140000, 150000, 160000, 145000, 10000],
-        flight_count: [100, 95, 105, 110, 115, 120, 112, 20],
-        timestamp: ['2025-07-01 10:00:00', '2025-07-02 10:00:00', '2025-07-03 10:00:00', '2025-07-04 10:00:00', '2025-07-05 10:00:00', '2025-07-06 10:00:00', '2025-07-07 10:00:00', '2025-07-08 10:00:00']
+    if (uploadedData) {
+      // Use uploaded data for KPIs and table
+      setKpiData(extractKpis(uploadedData));
+      setTableRows(
+        uploadedData.rows?.map(row => [
+          row.date || row.timestamp || '-',
+          row.airline || '-',
+          row.destination || '-',
+          row.passengers || '-',
+          row.revenue || '-',
+          { trend: 'up', value: '0%' },
+          row.gender || '-',
+          row.age_group || row.age || '-',
+        ]) || []
+      );
+      // --- New: Update charts with uploaded data ---
+      // Passenger Traffic Trend (by date)
+      const dateLabels = uploadedData.rows?.map(row => row.date || row.timestamp || '-') || [];
+      const passengerCounts = uploadedData.rows?.map(row => Number(row.passengers) || 0) || [];
+      setPassengerOption({
+        animation: false,
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+        xAxis: { type: 'category', data: dateLabels, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
+        yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
+        series: [{ data: passengerCounts, type: 'line', smooth: true, symbol: 'none', lineStyle: { width: 3, color: 'rgba(87,181,231,1)' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(87,181,231,0.2)' }, { offset: 1, color: 'rgba(87,181,231,0.01)' }] } } }]
       });
-      const kpiForInsights = {
-        passengers: 127842,
-        top_airline: 'Delta Air',
-        airline_share: 28.5,
-        top_destination: 'Japan',
-        revenue: 4370000,
-        growth: 12.3
-      };
-      const insightReport = await getInsights(kpiForInsights);
-      setInsights([insightReport]);
-
-
-      // Mock data - replace with actual API calls that fetch this data
+      // Airline Market Share (by airline)
+      const airlineCounts = {};
+      uploadedData.rows?.forEach(row => {
+        const airline = row.airline || '-';
+        airlineCounts[airline] = (airlineCounts[airline] || 0) + (Number(row.passengers) || 0);
+      });
+      setAirlineOption({
+        animation: false,
+        tooltip: { trigger: 'item' },
+        legend: { top: '5%', left: 'center' },
+        series: [{
+          name: 'Passengers',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false, position: 'center' },
+          emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold' } },
+          labelLine: { show: false },
+          data: Object.entries(airlineCounts).map(([name, value]) => ({ name, value }))
+        }]
+      });
+      // Top Destinations (by destination)
+      const destinationCounts = {};
+      uploadedData.rows?.forEach(row => {
+        const dest = row.destination || '-';
+        destinationCounts[dest] = (destinationCounts[dest] || 0) + (Number(row.passengers) || 0);
+      });
+      setDestinationOption({
+        animation: false,
+        tooltip: { trigger: 'item' },
+        legend: { top: '5%', left: 'center' },
+        series: [{
+          name: 'Passengers',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false, position: 'center' },
+          emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold' } },
+          labelLine: { show: false },
+          data: Object.entries(destinationCounts).map(([name, value]) => ({ name, value }))
+        }]
+      });
+      // Revenue Analysis (by date)
+      const revenueValues = uploadedData.rows?.map(row => Number(row.revenue) || 0) || [];
+      setRevenueOption({
+        animation: false,
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+        xAxis: { type: 'category', data: dateLabels, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
+        yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
+        series: [{ data: revenueValues, type: 'bar', barWidth: 24, itemStyle: { color: '#1a73e8' } }]
+      });
+      // --- End new ---
+    } else {
+      // Fallback to mock/demo data (randomized)
+      // Generate random values for KPIs and charts
+      const airlines = ['Delta Air', 'United Airlines', 'American Airlines', 'Emirates', 'Lufthansa'];
+      const destinations = ['Tokyo, Japan', 'London, UK', 'Paris, France', 'Dubai, UAE', 'Berlin, Germany'];
+      const topAirlineIdx = Math.floor(Math.random() * airlines.length);
+      const topDestinationIdx = Math.floor(Math.random() * destinations.length);
+      const totalPassengers = Math.floor(Math.random() * 50000) + 80000; // 80,000 - 130,000
+      const topAirlineShare = (Math.random() * 20 + 20).toFixed(1); // 20% - 40%
+      const topDestinationPassengers = Math.floor(Math.random() * 10000) + 8000; // 8,000 - 18,000
+      const totalRevenue = (Math.random() * 2 + 3).toFixed(2); // $3.00M - $5.00M
+      const passengerTrend = (Math.random() * 20 - 5).toFixed(1); // -5% to +15%
+      const airlineTrend = (Math.random() * 10).toFixed(1); // 0% - 10%
+      const destinationTrend = (Math.random() * 10).toFixed(1); // 0% - 10%
+      const revenueTrend = (Math.random() * 10 - 5).toFixed(1); // -5% to +5%
+      const revenueDown = Math.random() < 0.5;
       const fetchedKpiData = [
-          { label: 'Total Passengers', value: '127,842', icon: <RiUserLine className="text-primary text-2xl" />, bg: 'bg-blue-100', color: 'text-primary', trend: 'up', percent: '12.3%', trendColor: 'text-green-600', sub: 'vs previous period' },
-          { label: 'Top Airline', value: 'Delta Air', icon: <RiPlaneLine className="text-green-600 text-2xl" />, bg: 'bg-green-100', color: 'text-green-600', trend: 'up', percent: '3.2%', trendColor: 'text-green-600', sub: '28.5% market share' },
-          { label: 'Top Destination', value: 'Japan', icon: <RiMapPinLine className="text-purple-600 text-2xl" />, bg: 'bg-purple-100', color: 'text-purple-600', trend: 'up', percent: '8.7%', trendColor: 'text-green-600', sub: '15,642 passengers' },
-          { label: 'Total Revenue', value: '$4.37M', icon: <RiMoneyDollarCircleLine className="text-amber-600 text-2xl" />, bg: 'bg-amber-100', color: 'text-amber-600', trend: 'down', percent: '2.1%', trendColor: 'text-red-600', sub: 'vs previous period' },
+        { label: 'Total Passengers', value: totalPassengers.toLocaleString(), icon: <RiUserLine className="text-primary text-2xl" />, bg: 'bg-blue-100', color: 'text-primary', trend: 'up', percent: `${passengerTrend}%`, trendColor: 'text-green-600', sub: 'vs previous period' },
+        { label: 'Top Airline', value: airlines[topAirlineIdx], icon: <RiPlaneLine className="text-green-600 text-2xl" />, bg: 'bg-green-100', color: 'text-green-600', trend: 'up', percent: `${topAirlineShare}% market share`, trendColor: 'text-green-600', sub: `${topAirlineShare}% market share` },
+        { label: 'Top Destination', value: destinations[topDestinationIdx], icon: <RiMapPinLine className="text-purple-600 text-2xl" />, bg: 'bg-purple-100', color: 'text-purple-600', trend: 'up', percent: `${destinationTrend}%`, trendColor: 'text-green-600', sub: `${topDestinationPassengers.toLocaleString()} passengers` },
+        { label: 'Total Revenue', value: `$${totalRevenue}M`, icon: <RiMoneyDollarCircleLine className="text-amber-600 text-2xl" />, bg: 'bg-amber-100', color: 'text-amber-600', trend: revenueDown ? 'down' : 'up', percent: `${revenueTrend}%`, trendColor: revenueDown ? 'text-red-600' : 'text-green-600', sub: 'vs previous period' },
       ];
       setKpiData(fetchedKpiData);
-
-      const passengerData = prediction.short_term;
-      setPassengerOption({
-          animation: false,
-          tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
-          grid: { top: 10, right: 10, bottom: 20, left: 40 },
-          xAxis: { type: 'category', data: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'], axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
-          yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
-          series: [{ data: passengerData, type: 'line', smooth: true, symbol: 'none', lineStyle: { width: 3, color: 'rgba(87,181,231,1)' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(87,181,231,0.2)' }, { offset: 1, color: 'rgba(87,181,231,0.01)' }] } } }]
-      });
-
-      // Mock data - now with gender and age group
       setTableRows(generateDemoRows(20));
-    };
-
-    fetchData();
-  }, [selectedPeriod]);
+      // --- Set mock chart data (randomized) ---
+      const mockDates = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
+      const mockPassengers = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10000) + 10000); // 10,000 - 20,000
+      setPassengerOption({
+        animation: false,
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+        xAxis: { type: 'category', data: mockDates, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
+        yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
+        series: [{ data: mockPassengers, type: 'line', smooth: true, symbol: 'none', lineStyle: { width: 3, color: 'rgba(87,181,231,1)' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(87,181,231,0.2)' }, { offset: 1, color: 'rgba(87,181,231,0.01)' }] } } }]
+      });
+      setAirlineOption({
+        animation: false,
+        tooltip: { trigger: 'item' },
+        legend: { top: '5%', left: 'center' },
+        series: [{
+          name: 'Passengers',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false, position: 'center' },
+          emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold' } },
+          labelLine: { show: false },
+          data: airlines.map((name, i) => ({ name, value: Math.floor(Math.random() * 10000) + 10000 }))
+        }]
+      });
+      setDestinationOption({
+        animation: false,
+        tooltip: { trigger: 'item' },
+        legend: { top: '5%', left: 'center' },
+        series: [{
+          name: 'Passengers',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+          label: { show: false, position: 'center' },
+          emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold' } },
+          labelLine: { show: false },
+          data: destinations.map((name, i) => ({ name, value: Math.floor(Math.random() * 5000) + 5000 }))
+        }]
+      });
+      setRevenueOption({
+        animation: false,
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+        xAxis: { type: 'category', data: mockDates, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
+        yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
+        series: [{ data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 50000) + 100000), type: 'bar', barWidth: 24, itemStyle: { color: '#1a73e8' } }]
+      });
+      // --- End mock chart data ---
+    }
+  }, [uploadedData, selectedPeriod]);
 
   // Filtering logic
-  const filteredRows = tableRows.filter(row =>
-    genderFilters[row[6]] && ageFilters[row[7]]
-  );
+  const filteredRows = tableRows.filter(row => {
+    const genderOk = genderFilters[row[6]];
+    const ageGroupOk = ageFilters[row[7]];
+    let ageOk = true;
+    // Try to get the numeric age from the row (from uploaded data)
+    const ageValue = typeof row[7] === 'number' ? row[7] : (row[8] && !isNaN(Number(row[8])) ? Number(row[8]) : null);
+    if (ageValue !== null && ageValue !== undefined && ageRange.min !== '' && ageRange.max !== '') {
+      ageOk = ageValue >= Number(ageRange.min) && ageValue <= Number(ageRange.max);
+    }
+    return genderOk && ageGroupOk && ageOk;
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -124,6 +289,139 @@ const Dashboard = () => {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [filterOpen]);
+
+  // Helper functions to get chart options based on type
+  function getPassengerChartOption(type) {
+    if (!passengerOption.series) return passengerOption;
+    const base = { ...passengerOption };
+    if (type === 'pie') {
+      return {
+        ...base,
+        xAxis: undefined,
+        yAxis: undefined,
+        series: [{
+          type: 'pie',
+          data: base.series[0].data.map((value, i) => ({ value, name: base.xAxis?.data?.[i] || `Item ${i + 1}` })),
+          radius: ['40%', '70%'],
+          label: { show: false },
+        }],
+        legend: { top: '5%', left: 'center' },
+      };
+    } else {
+      return {
+        ...base,
+        series: [{ ...base.series[0], type }],
+      };
+    }
+  }
+  function getAirlineChartOption(type) {
+    if (!airlineOption.series) return airlineOption;
+    const base = { ...airlineOption };
+    if (type === 'pie') {
+      return base;
+    } else {
+      // Convert pie to bar/line
+      const data = base.series[0].data;
+      return {
+        animation: false,
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: data.map(d => d.name) },
+        yAxis: { type: 'value' },
+        series: [{ data: data.map(d => d.value), type, barWidth: 24, itemStyle: { color: '#1a73e8' } }],
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+      };
+    }
+  }
+  function getDestinationChartOption(type) {
+    if (!destinationOption.series) return destinationOption;
+    const base = { ...destinationOption };
+    if (type === 'pie') {
+      const data = base.series[0].data;
+      return {
+        ...base,
+        xAxis: undefined,
+        yAxis: undefined,
+        series: [{
+          type: 'pie',
+          data: data.map((d, i) => ({ value: d.value, name: d.name })),
+          radius: ['40%', '70%'],
+          label: { show: false },
+        }],
+        legend: { top: '5%', left: 'center' },
+      };
+    } else {
+      const data = base.series[0].data;
+      return {
+        animation: false,
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: data.map(d => d.name) },
+        yAxis: { type: 'value' },
+        series: [{ data: data.map(d => d.value), type, barWidth: 24, itemStyle: { color: '#1a73e8' } }],
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+      };
+    }
+  }
+  function getRevenueChartOption(type) {
+    if (!revenueOption.series) return revenueOption;
+    const base = { ...revenueOption };
+    if (type === 'pie') {
+      // Convert to pie chart
+      return {
+        ...base,
+        xAxis: undefined,
+        yAxis: undefined,
+        series: [{
+          type: 'pie',
+          data: base.series[0].data.map((value, i) => ({ value, name: base.xAxis?.data?.[i] || `Item ${i + 1}` })),
+          radius: ['40%', '70%'],
+          label: { show: false },
+        }],
+        legend: { top: '5%', left: 'center' },
+      };
+    } else if (type === 'waterfall') {
+      // Waterfall chart logic
+      const data = base.series[0].data;
+      const xLabels = base.xAxis?.data || data.map((_, i) => `Item ${i + 1}`);
+      let sum = 0;
+      const waterfallData = data.map((v, i) => {
+        const prev = sum;
+        sum += v;
+        return [prev, sum];
+      });
+      return {
+        animation: false,
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'category', data: xLabels },
+        yAxis: { type: 'value' },
+        series: [{
+          type: 'custom',
+          renderItem: (params, api) => {
+            const y0 = api.coord([api.value(0), 0]);
+            const y1 = api.coord([api.value(1), 0]);
+            const height = y0[1] - y1[1];
+            return {
+              type: 'rect',
+              shape: {
+                x: y0[0] - 15,
+                y: y1[1],
+                width: 30,
+                height: height
+              },
+              style: api.style()
+            };
+          },
+          data: waterfallData,
+          itemStyle: { color: '#1a73e8' }
+        }],
+        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+      };
+    } else {
+      return {
+        ...base,
+        series: [{ ...base.series[0], type }],
+      };
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8f9fa] font-['Inter',sans-serif]">
@@ -148,7 +446,17 @@ const Dashboard = () => {
                 <RiNotification3Line />
               </div>
               <div className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-full overflow-hidden">
-                <img src="https://readdy.ai/api/search-image?query=professional%20headshot%20of%20airport%20executive%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%20portrait&width=100&height=100&seq=1&orientation=squarish" alt="User" className="w-full h-full object-cover" />
+                {(() => {
+                  const profileImage = localStorage.getItem('userProfileImage');
+                  const avatarInitial = localStorage.getItem('userAvatarInitial');
+                  if (profileImage) {
+                    return <img src={profileImage} alt="User" className="w-full h-full object-cover" />;
+                  } else if (avatarInitial) {
+                    return <span className="text-xl font-bold text-primary">{avatarInitial}</span>;
+                  } else {
+                    return <img src={AppLogo} alt="App Logo" className="w-7 h-7 object-contain" />;
+                  }
+                })()}
               </div>
             </div>
           </div>
@@ -161,9 +469,9 @@ const Dashboard = () => {
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-2xl font-semibold text-gray-800">Airport Analytics Dashboard</h2>
           <div className="bg-white rounded-full shadow-sm p-1 inline-flex">
-            <button onClick={() => handlePeriodChange('week')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap !rounded-button ${selectedPeriod === 'week' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Week</button>
-            <button onClick={() => handlePeriodChange('month')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap !rounded-button ${selectedPeriod === 'month' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Month</button>
-            <button onClick={() => handlePeriodChange('year')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap !rounded-button ${selectedPeriod === 'year' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Year</button>
+            <button onClick={() => handlePeriodChange('week')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap rounded-button ${selectedPeriod === 'week' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Week</button>
+            <button onClick={() => handlePeriodChange('month')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap rounded-button ${selectedPeriod === 'month' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Month</button>
+            <button onClick={() => handlePeriodChange('year')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap rounded-button ${selectedPeriod === 'year' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Year</button>
           </div>
         </div>
         {/* Date Range */}
@@ -173,10 +481,10 @@ const Dashboard = () => {
             <span className="font-medium text-gray-800">{currentPeriod}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 whitespace-nowrap !rounded-button"><RiArrowLeftSLine className="text-lg" /></button>
-            <button className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 whitespace-nowrap !rounded-button"><RiArrowRightSLine className="text-lg" /></button>
+            <button className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 whitespace-nowrap rounded-button"><RiArrowLeftSLine className="text-lg" /></button>
+            <button className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 whitespace-nowrap rounded-button"><RiArrowRightSLine className="text-lg" /></button>
             <div className="h-6 border-l border-gray-300 mx-1"></div>
-            <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap !rounded-button">Today</button>
+            <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button">Today</button>
           </div>
         </div>
         {/* KPI Cards */}
@@ -199,47 +507,75 @@ const Dashboard = () => {
         </div>
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Passenger Traffic Trend */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Passenger Traffic Trend</h3>
-              <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 whitespace-nowrap !rounded-button"><RiDownloadLine className="mr-1 inline" /> Export</button>
-                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap !rounded-button"><RiMore2Fill /></button>
+              <div className="flex items-center gap-2 relative">
+                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button" onClick={() => setOpenMenu(openMenu === 'passenger' ? null : 'passenger')}><RiMore2Fill /></button>
+                {openMenu === 'passenger' && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-lg z-20">
+                    {['line', 'bar', 'pie'].map(type => (
+                      <button key={type} className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${passengerChartType === type ? 'font-bold text-primary' : ''}`} onClick={() => { setPassengerChartType(type); setOpenMenu(null); }}>{type.charAt(0).toUpperCase() + type.slice(1)}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <ReactECharts option={passengerOption} style={{ height: 256 }} />
+            <ReactECharts option={getPassengerChartOption(passengerChartType)} style={{ height: 256 }} />
           </div>
+          {/* Airline Market Share */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Airline Market Share</h3>
-              <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 whitespace-nowrap !rounded-button"><RiDownloadLine className="mr-1 inline" /> Export</button>
-                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap !rounded-button"><RiMore2Fill /></button>
+              <div className="flex items-center gap-2 relative">
+                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button" onClick={() => setOpenMenu(openMenu === 'airline' ? null : 'airline')}><RiMore2Fill /></button>
+                {openMenu === 'airline' && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-lg z-20">
+                    {['line', 'bar', 'pie'].map(type => (
+                      <button key={type} className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${airlineChartType === type ? 'font-bold text-primary' : ''}`} onClick={() => { setAirlineChartType(type); setOpenMenu(null); }}>{type.charAt(0).toUpperCase() + type.slice(1)}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <ReactECharts option={airlineOption} style={{ height: 256 }} />
+            <ReactECharts option={getAirlineChartOption(airlineChartType)} style={{ height: 256 }} />
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Top Destinations */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Top Destinations</h3>
-              <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 whitespace-nowrap !rounded-button"><RiDownloadLine className="mr-1 inline" /> Export</button>
-                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap !rounded-button"><RiMore2Fill /></button>
+              <div className="flex items-center gap-2 relative">
+                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button" onClick={() => setOpenMenu(openMenu === 'destination' ? null : 'destination')}><RiMore2Fill /></button>
+                {openMenu === 'destination' && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-lg z-20">
+                    {['bar', 'pie'].map(type => (
+                      <button key={type} className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${destinationChartType === type ? 'font-bold text-primary' : ''}`} onClick={() => { setDestinationChartType(type); setOpenMenu(null); }}>{type.charAt(0).toUpperCase() + type.slice(1)}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <ReactECharts option={destinationOption} style={{ height: 256 }} />
+            <ReactECharts option={getDestinationChartOption(destinationChartType)} style={{ height: 256 }} />
           </div>
+          {/* Revenue Analysis */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Revenue Analysis</h3>
-              <div className="flex items-center gap-2">
-                <button className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 whitespace-nowrap !rounded-button"><RiDownloadLine className="mr-1 inline" /> Export</button>
-                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap !rounded-button"><RiMore2Fill /></button>
+              <div className="flex items-center gap-2 relative">
+                <button className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button" onClick={() => setOpenMenu(openMenu === 'revenue' ? null : 'revenue')}><RiMore2Fill /></button>
+                {openMenu === 'revenue' && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-lg z-20">
+                    {['line', 'bar', 'pie', 'waterfall'].map(type => (
+                      <button key={type} className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${revenueChartType === type ? 'font-bold text-primary' : ''}`} onClick={() => { setRevenueChartType(type); setOpenMenu(null); }}>{type.charAt(0).toUpperCase() + type.slice(1)}</button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <ReactECharts option={revenueOption} style={{ height: 256 }} />
+            <ReactECharts option={getRevenueChartOption(revenueChartType)} style={{ height: 256 }} />
           </div>
         </div>
         {/* Data Table */}
@@ -250,7 +586,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-3">
                 <div className="relative" ref={filterRef}>
                   <button
-                    className="px-3 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 whitespace-nowrap !rounded-button"
+                    className="px-3 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 whitespace-nowrap rounded-button"
                     onClick={() => setFilterOpen((open) => !open)}
                   >
                     <RiFilter3Line className="mr-1 inline" /> Filter
@@ -270,17 +606,42 @@ const Dashboard = () => {
                         </label>
                       ))}
                       <div className="mt-3 mb-2 text-sm font-semibold text-gray-700">Age Group</div>
-                      {['Child', 'Adult'].map(age => (
-                        <label key={age} className="flex items-center text-sm mb-1">
+                      {['Child', 'Adult'].map(ageGroup => (
+                        <label key={ageGroup} className="flex items-center text-sm mb-1">
                           <input
                             type="checkbox"
-                            checked={ageFilters[age]}
-                            onChange={() => setAgeFilters(f => ({ ...f, [age]: !f[age] }))}
+                            checked={ageFilters[ageGroup]}
+                            onChange={() => setAgeFilters(f => ({ ...f, [ageGroup]: !f[ageGroup] }))}
                             className="mr-2"
                           />
-                          {age}
+                          {ageGroup}
                         </label>
                       ))}
+                      <div className="mt-3 mb-2 text-sm font-semibold text-gray-700">Custom Age Range</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={ageRange.min}
+                          onChange={e => setAgeRange(r => ({ ...r, min: e.target.value }))}
+                          className="w-16 px-2 py-1 border rounded text-sm"
+                        />
+                        <span>-</span>
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={ageRange.max}
+                          onChange={e => setAgeRange(r => ({ ...r, max: e.target.value }))}
+                          className="w-16 px-2 py-1 border rounded text-sm"
+                        />
+                      </div>
+                      <button
+                        className="text-xs text-blue-600 hover:underline mt-1"
+                        onClick={() => setAgeRange({ min: '', max: '' })}
+                        type="button"
+                      >
+                        Clear Age Range
+                      </button>
                     </div>
                   )}
                 </div>
@@ -325,11 +686,11 @@ const Dashboard = () => {
             <div className="flex justify-between items-center mt-4 text-sm">
               <div className="text-gray-500">Showing 5 of 124 entries</div>
               <div className="flex items-center gap-2">
-                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap !rounded-button">Previous</button>
-                <button className="px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 whitespace-nowrap !rounded-button">1</button>
-                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap !rounded-button">2</button>
-                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap !rounded-button">3</button>
-                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap !rounded-button">Next</button>
+                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap rounded-button">Previous</button>
+                <button className="px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 whitespace-nowrap rounded-button">1</button>
+                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap rounded-button">2</button>
+                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap rounded-button">3</button>
+                <button className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 whitespace-nowrap rounded-button">Next</button>
               </div>
             </div>
           </div>

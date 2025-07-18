@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { signup } from '../api';
+import { useNavigate } from 'react-router-dom';
 
 const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
 
-const Signup = ({ onSignupComplete, onLogin }) => {
+const Signup = () => {
+  const navigate = useNavigate();
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -39,8 +41,11 @@ const Signup = ({ onSignupComplete, onLogin }) => {
     try {
       await signup({ email, password, firstName, lastName });
       setSuccess('Account created! Redirecting...');
+      // Store avatar initial in localStorage
+      const initial = (email && email[0]) ? email[0].toUpperCase() : '';
+      localStorage.setItem('userAvatarInitial', initial);
       setTimeout(() => {
-        if (onSignupComplete) onSignupComplete();
+        navigate('/dashboard');
       }, 1000);
     } catch (err) {
       let apiError = err?.response?.data?.message || err.message || 'Could not create account. Please try again.';
@@ -160,7 +165,7 @@ const Signup = ({ onSignupComplete, onLogin }) => {
           {/* Switch to login */}
           <p className="mt-8 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <button type="button" className="text-primary hover:text-primary/80 font-medium" onClick={onLogin}>
+            <button type="button" className="text-primary hover:text-primary/80 font-medium" onClick={() => navigate('/login')}>
               Sign in
             </button>
           </p>

@@ -99,7 +99,7 @@ const Auth = ({ mode = 'login', onSignup, onLogin, onSignupComplete }) => {
                 </div>
                 <a href="#" className="text-sm text-primary hover:text-primary/80">Forgot password?</a>
               </div>
-              <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors !rounded-button">Sign In</button>
+              <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors rounded-button">Sign In</button>
             </form>
           ) : (
             // Signup Form
@@ -142,7 +142,7 @@ const Auth = ({ mode = 'login', onSignup, onLogin, onSignupComplete }) => {
                   I agree to the <a href="#" className="text-primary hover:text-primary/80">Terms of Service</a> and <a href="#" className="text-primary hover:text-primary/80">Privacy Policy</a>
                 </label>
               </div>
-              <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors !rounded-button">Create Account</button>
+              <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors rounded-button">Create Account</button>
             </form>
           )}
 
@@ -158,13 +158,13 @@ const Auth = ({ mode = 'login', onSignup, onLogin, onSignupComplete }) => {
 
           {/* Social Auth Buttons */}
           <div className="mt-6 grid grid-cols-3 gap-3">
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button">
               <i className="ri-google-fill text-[#EA4335] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button">
               <i className="ri-apple-fill text-[#000000] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button">
               <i className="ri-microsoft-fill text-[#00A4EF] text-xl"></i>
             </button>
           </div>

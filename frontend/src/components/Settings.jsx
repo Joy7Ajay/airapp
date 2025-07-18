@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const themes = [
   { label: 'Light', value: 'light' },
@@ -8,6 +9,7 @@ const themes = [
 
 const Settings = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+  const navigate = useNavigate();
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
@@ -42,6 +44,14 @@ const Settings = () => {
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-200">User Preferences</h3>
         <div className="text-gray-600 dark:text-gray-400 text-sm">(Coming soon: default dashboard view, language, etc.)</div>
+      </div>
+      <div className="mb-6">
+        <button
+          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 transition-colors"
+          onClick={() => navigate('/profile')}
+        >
+          Profile
+        </button>
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { login } from '../api';
+import { useNavigate } from 'react-router-dom';
 
 const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
 
-const Login = ({ onLogin, onSignup }) => {
+const Login = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +44,7 @@ const Login = ({ onLogin, onSignup }) => {
       await login({ email, password });
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => {
-        if (onLogin) onLogin();
+        navigate('/dashboard');
       }, 1000);
     } catch (err) {
       let apiError = err?.response?.data?.message || err.message || 'Invalid credentials. Please try again.';
@@ -149,7 +151,7 @@ const Login = ({ onLogin, onSignup }) => {
           {/* Switch to signup */}
           <p className="mt-8 text-center text-sm text-gray-600">
             Don't have an account?{' '}
-            <button type="button" className="text-primary hover:text-primary/80 font-medium" onClick={onSignup}>
+            <button type="button" className="text-primary hover:text-primary/80 font-medium" onClick={() => navigate('/signup')}>
               Sign up
             </button>
           </p>
