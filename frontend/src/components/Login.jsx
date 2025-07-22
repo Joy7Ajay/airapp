@@ -43,6 +43,8 @@ const Login = () => {
     try {
       await login({ email, password });
       setSuccess('Login successful! Redirecting...');
+      // Store user info in localStorage
+      localStorage.setItem('user', JSON.stringify({ email }));
       setTimeout(() => {
         navigate('/dashboard');
       }, 1000);
@@ -123,7 +125,7 @@ const Login = () => {
               </div>
               <a href="#" className="text-sm text-primary hover:text-primary/80">Forgot password?</a>
             </div>
-            <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors !rounded-button disabled:opacity-60" disabled={loading || lockout} aria-disabled={loading || lockout}>
+            <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors rounded-button disabled:opacity-60" disabled={loading || lockout} aria-disabled={loading || lockout}>
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
@@ -138,13 +140,13 @@ const Login = () => {
           </div>
           {/* Social Auth Buttons */}
           <div className="mt-6 grid grid-cols-3 gap-3">
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign in with Google">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign in with Google">
               <i className="ri-google-fill text-[#EA4335] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign in with Apple">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign in with Apple">
               <i className="ri-apple-fill text-[#000000] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign in with Microsoft">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign in with Microsoft">
               <i className="ri-microsoft-fill text-[#00A4EF] text-xl"></i>
             </button>
           </div>

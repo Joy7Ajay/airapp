@@ -41,6 +41,8 @@ const Signup = () => {
     try {
       await signup({ email, password, firstName, lastName });
       setSuccess('Account created! Redirecting...');
+      // Store user info in localStorage
+      localStorage.setItem('user', JSON.stringify({ email }));
       // Store avatar initial in localStorage
       const initial = (email && email[0]) ? email[0].toUpperCase() : '';
       localStorage.setItem('userAvatarInitial', initial);
@@ -137,7 +139,7 @@ const Signup = () => {
                 I agree to the <a href="#" className="text-primary hover:text-primary/80">Terms of Service</a> and <a href="#" className="text-primary hover:text-primary/80">Privacy Policy</a>
               </label>
             </div>
-            <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors !rounded-button disabled:opacity-60" disabled={loading} aria-disabled={loading}>
+            <button type="submit" className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors rounded-button disabled:opacity-60" disabled={loading} aria-disabled={loading}>
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
@@ -152,13 +154,13 @@ const Signup = () => {
           </div>
           {/* Social Auth Buttons */}
           <div className="mt-6 grid grid-cols-3 gap-3">
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign up with Google">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign up with Google">
               <i className="ri-google-fill text-[#EA4335] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign up with Apple">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign up with Apple">
               <i className="ri-apple-fill text-[#000000] text-xl"></i>
             </button>
-            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 !rounded-button" aria-label="Sign up with Microsoft">
+            <button type="button" className="flex justify-center items-center py-2 px-4 border rounded-lg hover:bg-gray-50 rounded-button" aria-label="Sign up with Microsoft">
               <i className="ri-microsoft-fill text-[#00A4EF] text-xl"></i>
             </button>
           </div>

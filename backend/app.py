@@ -12,7 +12,7 @@ from database import (
     insert_passenger_record, insert_uploaded_file, init_db,
     insert_notification, get_notifications, mark_notification_read, mark_all_notifications_read,
     set_user_preference, get_user_preferences, insert_report_request, update_report_request_status, get_report_requests,
-    get_user_by_email, get_user_by_id
+    get_user_by_email, get_user_by_id, get_db_connection
 )
 from werkzeug.utils import secure_filename
 import smtplib
@@ -23,11 +23,13 @@ import json
 from datetime import datetime
 import time
 import pandas as pd
+from flask_cors import CORS
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 # Initialize Database
 init_db()
@@ -76,17 +78,19 @@ def send_email_notification(to_email, subject, message):
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
-    username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
+    first_name = data.get('firstName')
+    last_name = data.get('lastName')
 
-    if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
 
-    if get_user_by_email(username): # Changed from get_user_by_username to get_user_by_email
-        return jsonify({"error": "Username already exists"}), 400
+    if get_user_by_email(email):
+        return jsonify({"error": "Email already exists"}), 400
 
     hashed_password = generate_password_hash(password)
-    insert_user(username, hashed_password) # This line was not in the new_code, but should be changed for consistency
+    insert_user(email, hashed_password, first_name, last_name)
 
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -94,14 +98,14 @@ def register():
 def login():
     try:
         data = request.get_json()
-        username = data.get('username')
+        email = data.get('email')
         password = data.get('password')
-        user = get_user_by_email(username)
+        user = get_user_by_email(email)
         user_id = user['id'] if user else None
         now = time()
         # Check lockout
         if user_id in LOCKOUTS and now < LOCKOUTS[user_id]:
-            logging.warning(f"User {username} is locked out from login.")
+            logging.warning(f"User {email} is locked out from login.")
             if user and user['email']:
                 send_email_notification(user['email'], 'Login Attempt Blocked', 'Your account is temporarily locked due to too many failed login attempts.')
             if user_id:
@@ -113,7 +117,7 @@ def login():
             FAILED_LOGINS[user_id] = 0
             LOCKOUTS.pop(user_id, None)
             access_token = create_access_token(identity=user['id'])
-            logging.info(f"User {username} logged in successfully.")
+            logging.info(f"User {email} logged in successfully.")
             if user['email']:
                 send_email_notification(user['email'], 'Login Successful', 'You have successfully logged in.')
             insert_notification(user_id, 'login', 'Login successful.')
@@ -124,11 +128,11 @@ def login():
                 FAILED_LOGINS[user_id] = FAILED_LOGINS.get(user_id, 0) + 1
                 if FAILED_LOGINS[user_id] >= MAX_FAILED_ATTEMPTS:
                     LOCKOUTS[user_id] = now + LOCKOUT_DURATION
-                    logging.warning(f"User {username} locked out after too many failed attempts.")
+                    logging.warning(f"User {email} locked out after too many failed attempts.")
                     insert_notification(user_id, 'login', 'Account locked due to too many failed login attempts.')
                     if user and user['email']:
                         send_email_notification(user['email'], 'Account Locked', 'Your account is locked due to too many failed login attempts.')
-            logging.warning(f"Failed login attempt for user {username}.")
+            logging.warning(f"Failed login attempt for user {email}.")
             if user_id:
                 insert_notification(user_id, 'login', 'Failed login attempt.')
             if user and user['email']:
@@ -199,7 +203,8 @@ def upload_file():
             if user_id:
                 insert_notification(user_id, 'upload', 'File upload failed: No selected file.')
             return jsonify({'error': 'No selected file'}), 400
-        filename = secure_filename(file.filename)
+        filename = file.filename or 'uploaded_file.csv'
+        filename = secure_filename(filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         if user_id:
@@ -219,11 +224,39 @@ def upload_file():
             total_passengers = int(df['passengers'].sum()) if 'passengers' in df.columns else None
             total_revenue = float(df['revenue'].sum()) if 'revenue' in df.columns else None
             rows = df.to_dict(orient='records')
+            required_fields = ['timestamp', 'airline', 'destination', 'passengers', 'revenue']
+            cleaned_rows = []
+            skipped_rows = []
+            for row in rows:
+                if not all(field in row and row[field] not in [None, ''] for field in required_fields):
+                    skipped_rows.append(row)
+                    continue
+                try:
+                    record = {
+                        'timestamp': row.get('timestamp') or row.get('date') or datetime.now().isoformat(),
+                        'airline': str(row.get('airline', '')).strip(),
+                        'destination': str(row.get('destination', '')).strip(),
+                        'passengers': int(row.get('passengers', 0)),
+                        'revenue': float(row.get('revenue', 0.0))
+                    }
+                    insert_passenger_record(record)
+                    cleaned_rows.append(record)
+                except Exception as e:
+                    skipped_rows.append(row)
             processed = {
                 'total_passengers': total_passengers,
                 'total_revenue': total_revenue,
-                'rows': rows
+                'rows': cleaned_rows
             }
+            response = {
+                'message': 'File uploaded and processed successfully',
+                'filename': filename,
+                'data': processed
+            }
+            if skipped_rows:
+                response['warning'] = f"{len(skipped_rows)} row(s) were skipped due to missing or invalid data."
+                response['skipped_rows'] = skipped_rows
+            return jsonify(response)
         except Exception as parse_err:
             logging.error(f"CSV parse error: {parse_err}")
             return jsonify({'error': 'File uploaded but could not parse CSV.'}), 400
@@ -262,6 +295,17 @@ def import_external_data():
 @app.route('/api/test', methods=['GET'])
 def test_route():
     return jsonify({"message": "Backend is running!"})
+
+@app.route('/api/passenger_data', methods=['GET'])
+def get_passenger_data():
+    try:
+        conn = get_db_connection()
+        records = conn.execute('SELECT * FROM passenger_records ORDER BY timestamp DESC').fetchall()
+        conn.close()
+        return jsonify([dict(row) for row in records])
+    except Exception as e:
+        logging.error(f"Error fetching passenger data: {e}")
+        return jsonify({'error': 'Failed to fetch passenger data'}), 500
 
 # Notification endpoints
 @app.route('/api/notifications', methods=['GET'])

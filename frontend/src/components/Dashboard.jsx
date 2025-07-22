@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import ReactECharts from 'echarts-for-react';
 import {
   RiFlightTakeoffLine, RiUserLine, RiPlaneLine, RiMapPinLine, RiMoneyDollarCircleLine, RiArrowUpSLine, RiArrowDownSLine, RiNotification3Line, RiSearchLine, RiFilter3Line, RiDownloadLine, RiMore2Fill, RiArrowLeftSLine, RiArrowRightSLine, RiLightbulbLine, RiLineChartLine, RiFlightLandLine, RiCheckLine, RiRefreshLine, RiShieldCheckLine, RiLockLine, RiEyeLine, RiHistoryLine
@@ -6,6 +6,7 @@ import {
 import * as echarts from "echarts";
 import { getPassengerPrediction, getAnomalies, getInsights } from '../api';
 import AppLogo from '../assets/react.svg';
+import { DataContext } from './DataContext';
 
 
 const Dashboard = ({ goToFileUpload, uploadedData }) => {
@@ -29,6 +30,8 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
   const [destinationChartType, setDestinationChartType] = useState('bar');
   const [revenueChartType, setRevenueChartType] = useState('line');
   const [openMenu, setOpenMenu] = useState(null); // which chart menu is open
+
+  const { tableRows: contextTableRows, setTableRows: setContextTableRows, passengerData, setPassengerData } = useContext(DataContext);
 
   // Helper to extract KPIs from uploaded data
   const extractKpis = (data) => {
@@ -211,9 +214,9 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
       const mockDates = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
       const mockPassengers = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10000) + 10000); // 10,000 - 20,000
       setPassengerOption({
-        animation: false,
-        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
-        grid: { top: 10, right: 10, bottom: 20, left: 40 },
+          animation: false,
+          tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
+          grid: { top: 10, right: 10, bottom: 20, left: 40 },
         xAxis: { type: 'category', data: mockDates, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
         yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
         series: [{ data: mockPassengers, type: 'line', smooth: true, symbol: 'none', lineStyle: { width: 3, color: 'rgba(87,181,231,1)' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(87,181,231,0.2)' }, { offset: 1, color: 'rgba(87,181,231,0.01)' }] } } }]
@@ -255,12 +258,45 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
         tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
         grid: { top: 10, right: 10, bottom: 20, left: 40 },
         xAxis: { type: 'category', data: mockDates, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { color: '#1f2937' } },
-        yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
+          yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
         series: [{ data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 50000) + 100000), type: 'bar', barWidth: 24, itemStyle: { color: '#1a73e8' } }]
       });
       // --- End mock chart data ---
     }
   }, [uploadedData, selectedPeriod]);
+
+  useEffect(() => {
+    const fetchPassengerData = async () => {
+      try {
+        const response = await fetch('/api/passenger_data');
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setContextTableRows(
+            data.map(row => [
+              row.timestamp,
+              row.airline,
+              row.destination,
+              row.passengers,
+              row.revenue,
+              { trend: Math.random() > 0.5 ? 'up' : 'down', value: `${(Math.random() * 20).toFixed(1)}%` },
+              row.gender || 'N/A',
+              row.age_group || 'N/A',
+            ])
+          );
+          setPassengerData({
+            labels: data.map(row => row.timestamp.split('T')[0]),
+            values: data.map(row => row.passengers),
+            total: data.reduce((sum, row) => sum + (row.passengers || 0), 0),
+          });
+        }
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    if (contextTableRows.length === 0) {
+      fetchPassengerData();
+    }
+  }, [setContextTableRows, setPassengerData, contextTableRows.length]);
 
   // Filtering logic
   const filteredRows = tableRows.filter(row => {
@@ -575,7 +611,14 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
                 )}
               </div>
             </div>
-            <ReactECharts option={getRevenueChartOption(revenueChartType)} style={{ height: 256 }} />
+            {(() => {
+              const option = getRevenueChartOption(revenueChartType);
+              const hasData = option && option.series && option.series[0] && Array.isArray(option.series[0].data) && option.series[0].data.length > 0 && option.series[0].data.some(v => Array.isArray(v) ? v.some(n => typeof n === 'number' && !isNaN(n)) : typeof v === 'number' && !isNaN(v));
+              if (!hasData) {
+                return <div className="h-64 flex items-center justify-center text-gray-400">No data available for this chart type.</div>;
+              }
+              return <ReactECharts option={option} style={{ height: 256 }} />;
+            })()}
           </div>
         </div>
         {/* Data Table */}
@@ -839,15 +882,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           </div>
         </div>
       </footer>
-      {/* Custom Switch CSS */}
-      <style>{`
-        .custom-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .custom-switch input { opacity: 0; width: 0; height: 0; }
-        .switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
-        .switch-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .switch-slider { background-color: #1a73e8; }
-        input:checked + .switch-slider:before { transform: translateX(20px); }
-      `}</style>
     </div>
   );
 };

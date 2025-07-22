@@ -53,7 +53,7 @@ const Welcome = () => {
               <p className="text-gray-600 text-sm">Advanced encryption and data protection systems</p>
             </div>
           </div>
-          <button className="bg-primary text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-primary/90 transition-colors shadow-sm !rounded-button" onClick={() => navigate('/login')}>Get Started</button>
+          <button className="bg-primary text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-primary/90 transition-colors shadow-sm rounded-button" onClick={() => navigate('/login')}>Get Started</button>
         </div>
       </div>
     </div>

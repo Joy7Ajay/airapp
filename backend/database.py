@@ -17,6 +17,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
             created_at TEXT NOT NULL
         )
     ''')
@@ -66,16 +68,27 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
+    # PassengerRecords table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS passenger_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            airline TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            passengers INTEGER NOT NULL,
+            revenue REAL NOT NULL
+        )
+    ''')
     conn.commit()
     conn.close()
 
 # User functions
 
-def insert_user(email, password_hash):
+def insert_user(email, password_hash, first_name=None, last_name=None):
     conn = get_db_connection()
     conn.execute(
-        'INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)',
-        (email, password_hash, datetime.utcnow().isoformat())
+        'INSERT INTO users (email, password_hash, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)',
+        (email, password_hash, first_name, last_name, datetime.utcnow().isoformat())
     )
     conn.commit()
     conn.close()
@@ -186,3 +199,12 @@ def get_report_requests(user_id):
     reports = conn.execute('SELECT * FROM report_requests WHERE user_id = ? ORDER BY created_at DESC', (user_id,)).fetchall()
     conn.close()
     return reports
+
+def insert_passenger_record(record):
+    conn = get_db_connection()
+    conn.execute(
+        'INSERT INTO passenger_records (timestamp, airline, destination, passengers, revenue) VALUES (?, ?, ?, ?, ?)',
+        (record['timestamp'], record['airline'], record['destination'], record['passengers'], record['revenue'])
+    )
+    conn.commit()
+    conn.close()
