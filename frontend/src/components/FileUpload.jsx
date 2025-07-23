@@ -78,6 +78,25 @@ const FileUpload = ({ onDataProcessed }) => {
       if (response.ok) {
         setStatus(`File uploaded: ${data.filename}`);
         setFile(null);
+        // Parse CSV file (example using PapaParse)
+        if (file && file.type === 'text/csv') {
+          import('papaparse').then(Papa => {
+            Papa.parse(file, {
+              complete: (result) => {
+                const parsedData = result.data;
+                // Example: Update dashboard state (requires context)
+                setTableRows(parsedData);
+                // Optionally, aggregate passenger data for KPIs
+                const totalPassengers = parsedData.reduce((sum, row) => {
+                  const val = parseInt(row.passengers || row.Passengers || 0, 10);
+                  return sum + (isNaN(val) ? 0 : val);
+                }, 0);
+                setPassengerData({ total: totalPassengers });
+              },
+              header: true,
+            });
+          });
+        }
         if (data.warning) {
           setWarning(data.warning);
         }
