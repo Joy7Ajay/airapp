@@ -4,7 +4,6 @@ import datetime
 from database import insert_passenger_record
 
 def import_from_external(path):
-    """Import data from external storage"""
     for filename in os.listdir(path):
         if filename.endswith('.csv'):
             with open(os.path.join(path, filename), 'r') as f:

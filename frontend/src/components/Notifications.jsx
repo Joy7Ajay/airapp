@@ -29,7 +29,6 @@ const Notifications = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Show toast when a new notification is triggered
   const triggerNotification = (type) => {
     const demo = demoNotifications.find(n => n.type === type);
     if (demo) {
@@ -38,7 +37,6 @@ const Notifications = () => {
     }
   };
 
-  // Auto-dismiss toast
   useEffect(() => {
     if (toast) {
       clearTimeout(toastTimeout.current);
@@ -47,21 +45,18 @@ const Notifications = () => {
     return () => clearTimeout(toastTimeout.current);
   }, [toast]);
 
-  // Mark all as read
   const markAllAsRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
   return (
     <div className="relative">
-      {/* Bell Icon with Badge */}
       <button className="relative" onClick={() => setShowDropdown(v => !v)} aria-label="Notifications">
         <RiNotification3Line className="text-2xl text-gray-600" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">{unreadCount}</span>
         )}
       </button>
-      {/* Dropdown */}
       {showDropdown && (
         <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded shadow-lg z-30">
           <div className="flex justify-between items-center px-4 py-2 border-b">
@@ -78,7 +73,6 @@ const Notifications = () => {
             ))}
           </div>
           <div className="flex gap-2 p-2 border-t bg-gray-50">
-            {/* Demo triggers */}
             <button className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded" onClick={() => triggerNotification('report')}>Report Ready</button>
             <button className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded" onClick={() => triggerNotification('login')}>Login</button>
             <button className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded" onClick={() => triggerNotification('import')}>Import</button>
@@ -89,7 +83,6 @@ const Notifications = () => {
           </div>
         </div>
       )}
-      {/* Toast Popup */}
       {toast && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg text-white font-medium text-center ${toastColors[toast.type]}`}
              style={{ minWidth: 240 }}>

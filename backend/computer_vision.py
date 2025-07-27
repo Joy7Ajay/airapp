@@ -19,25 +19,22 @@ class PassengerCounter:
 
     def count_passengers(self, image_path):
         if not self.model_loaded:
-            return -1 # Indicate that the model is not available
-        """Count passengers in security/customs areas"""
+            return -1
         image = cv2.imread(image_path)
         height, width, _ = image.shape
         
-        # Prepare image for object detection
         blob = cv2.dnn.blobFromImage(image, 1/255, (416, 416), (0,0,0), True, crop=False)
         self.net.setInput(blob)
         output_layers = self.net.getUnconnectedOutLayersNames()
         outs = self.net.forward(output_layers)
         
-        # Process detections
         count = 0
         for out in outs:
             for detection in out:
                 scores = detection[5:]
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
-                if confidence > 0.5 and class_id == 0:  # Person class
+                if confidence > 0.5 and class_id == 0:
                     count += 1
                     
         return count

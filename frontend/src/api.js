@@ -35,9 +35,6 @@ const apiRequest = async (endpoint, method = 'GET', body = null) => {
 };
 
 export const login = async (credentials) => {
-  // Note: The backend doesn't have a login endpoint yet.
-  // This is a placeholder for now.
-  // In a real app, this would return a token.
   const token = 'fake-jwt-token'; // Replace with actual API call
   localStorage.setItem('authToken', token);
   return { token };
@@ -45,8 +42,6 @@ export const login = async (credentials) => {
 };
 
 export const signup = async (userData) => {
-    // Note: The backend doesn't have a signup endpoint yet.
-    // This is a placeholder for now.
     const token = 'fake-jwt-token'; // Replace with actual API call
     localStorage.setItem('authToken', token);
     return { token };

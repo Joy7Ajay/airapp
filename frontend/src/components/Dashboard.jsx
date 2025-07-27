@@ -24,19 +24,16 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
   const [ageRange, setAgeRange] = useState({ min: '', max: '' });
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef();
-  // Add chart type state for each chart
   const [passengerChartType, setPassengerChartType] = useState('line');
   const [airlineChartType, setAirlineChartType] = useState('pie');
   const [destinationChartType, setDestinationChartType] = useState('bar');
   const [revenueChartType, setRevenueChartType] = useState('line');
-  const [openMenu, setOpenMenu] = useState(null); // which chart menu is open
+  const [openMenu, setOpenMenu] = useState(null);
 
   const { tableRows: contextTableRows, setTableRows: setContextTableRows, passengerData, setPassengerData } = useContext(DataContext);
 
-  // Helper to extract KPIs from uploaded data
   const extractKpis = (data) => {
     if (!data) return [];
-    // Calculate top airline and destination
     let topAirline = '-';
     let topAirlineCount = 0;
     let topDestination = '-';
@@ -51,21 +48,18 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
       airlineCounts[airline] = (airlineCounts[airline] || 0) + passengers;
       destinationCounts[dest] = (destinationCounts[dest] || 0) + passengers;
     });
-    // Find top airline
     for (const [airline, count] of Object.entries(airlineCounts)) {
       if (count > topAirlineCount) {
         topAirline = airline;
         topAirlineCount = count;
       }
     }
-    // Find top destination
     for (const [dest, count] of Object.entries(destinationCounts)) {
       if (count > topDestinationCount) {
         topDestination = dest;
         topDestinationCount = count;
       }
     }
-    // Calculate market share for top airline
     const airlineMarketShare = totalPassengers > 0 ? ((topAirlineCount / totalPassengers) * 100).toFixed(1) : '-';
     return [
       { label: 'Total Passengers', value: data.total_passengers?.toLocaleString() || '-', icon: <RiUserLine className="text-primary text-2xl" />, bg: 'bg-blue-100', color: 'text-primary', trend: 'up', percent: '', trendColor: 'text-green-600', sub: '' },
@@ -105,7 +99,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
 
   useEffect(() => {
     if (uploadedData) {
-      // Use uploaded data for KPIs and table
       setKpiData(extractKpis(uploadedData));
       setTableRows(
         uploadedData.rows?.map(row => [
@@ -119,8 +112,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           row.age_group || row.age || '-',
         ]) || []
       );
-      // --- New: Update charts with uploaded data ---
-      // Passenger Traffic Trend (by date)
       const dateLabels = uploadedData.rows?.map(row => row.date || row.timestamp || '-') || [];
       const passengerCounts = uploadedData.rows?.map(row => Number(row.passengers) || 0) || [];
       setPassengerOption({
@@ -131,7 +122,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
         yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
         series: [{ data: passengerCounts, type: 'line', smooth: true, symbol: 'none', lineStyle: { width: 3, color: 'rgba(87,181,231,1)' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(87,181,231,0.2)' }, { offset: 1, color: 'rgba(87,181,231,0.01)' }] } } }]
       });
-      // Airline Market Share (by airline)
       const airlineCounts = {};
       uploadedData.rows?.forEach(row => {
         const airline = row.airline || '-';
@@ -153,7 +143,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           data: Object.entries(airlineCounts).map(([name, value]) => ({ name, value }))
         }]
       });
-      // Top Destinations (by destination)
       const destinationCounts = {};
       uploadedData.rows?.forEach(row => {
         const dest = row.destination || '-';
@@ -175,7 +164,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           data: Object.entries(destinationCounts).map(([name, value]) => ({ name, value }))
         }]
       });
-      // Revenue Analysis (by date)
       const revenueValues = uploadedData.rows?.map(row => Number(row.revenue) || 0) || [];
       setRevenueOption({
         animation: false,
@@ -185,22 +173,19 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
         yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
         series: [{ data: revenueValues, type: 'bar', barWidth: 24, itemStyle: { color: '#1a73e8' } }]
       });
-      // --- End new ---
     } else {
-      // Fallback to mock/demo data (randomized)
-      // Generate random values for KPIs and charts
       const airlines = ['Delta Air', 'United Airlines', 'American Airlines', 'Emirates', 'Lufthansa'];
       const destinations = ['Tokyo, Japan', 'London, UK', 'Paris, France', 'Dubai, UAE', 'Berlin, Germany'];
       const topAirlineIdx = Math.floor(Math.random() * airlines.length);
       const topDestinationIdx = Math.floor(Math.random() * destinations.length);
-      const totalPassengers = Math.floor(Math.random() * 50000) + 80000; // 80,000 - 130,000
-      const topAirlineShare = (Math.random() * 20 + 20).toFixed(1); // 20% - 40%
-      const topDestinationPassengers = Math.floor(Math.random() * 10000) + 8000; // 8,000 - 18,000
-      const totalRevenue = (Math.random() * 2 + 3).toFixed(2); // $3.00M - $5.00M
-      const passengerTrend = (Math.random() * 20 - 5).toFixed(1); // -5% to +15%
-      const airlineTrend = (Math.random() * 10).toFixed(1); // 0% - 10%
-      const destinationTrend = (Math.random() * 10).toFixed(1); // 0% - 10%
-      const revenueTrend = (Math.random() * 10 - 5).toFixed(1); // -5% to +5%
+      const totalPassengers = Math.floor(Math.random() * 50000) + 80000;
+      const topAirlineShare = (Math.random() * 20 + 20).toFixed(1);
+      const topDestinationPassengers = Math.floor(Math.random() * 10000) + 8000;
+      const totalRevenue = (Math.random() * 2 + 3).toFixed(2);
+      const passengerTrend = (Math.random() * 20 - 5).toFixed(1);
+      const airlineTrend = (Math.random() * 10).toFixed(1);
+      const destinationTrend = (Math.random() * 10).toFixed(1);
+      const revenueTrend = (Math.random() * 10 - 5).toFixed(1);
       const revenueDown = Math.random() < 0.5;
       const fetchedKpiData = [
         { label: 'Total Passengers', value: totalPassengers.toLocaleString(), icon: <RiUserLine className="text-primary text-2xl" />, bg: 'bg-blue-100', color: 'text-primary', trend: 'up', percent: `${passengerTrend}%`, trendColor: 'text-green-600', sub: 'vs previous period' },
@@ -210,9 +195,8 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
       ];
       setKpiData(fetchedKpiData);
       setTableRows(generateDemoRows(20));
-      // --- Set mock chart data (randomized) ---
       const mockDates = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
-      const mockPassengers = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10000) + 10000); // 10,000 - 20,000
+      const mockPassengers = Array.from({ length: 7 }, () => Math.floor(Math.random() * 10000) + 10000);
       setPassengerOption({
           animation: false,
           tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.8)', borderColor: '#e5e7eb', textStyle: { color: '#1f2937' } },
@@ -261,7 +245,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#1f2937' }, splitLine: { lineStyle: { color: '#f3f4f6' } } },
         series: [{ data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 50000) + 100000), type: 'bar', barWidth: 24, itemStyle: { color: '#1a73e8' } }]
       });
-      // --- End mock chart data ---
     }
   }, [uploadedData, selectedPeriod]);
 
@@ -298,12 +281,10 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
     }
   }, [setContextTableRows, setPassengerData, contextTableRows.length]);
 
-  // Filtering logic
   const filteredRows = tableRows.filter(row => {
     const genderOk = genderFilters[row[6]];
     const ageGroupOk = ageFilters[row[7]];
     let ageOk = true;
-    // Try to get the numeric age from the row (from uploaded data)
     const ageValue = typeof row[7] === 'number' ? row[7] : (row[8] && !isNaN(Number(row[8])) ? Number(row[8]) : null);
     if (ageValue !== null && ageValue !== undefined && ageRange.min !== '' && ageRange.max !== '') {
       ageOk = ageValue >= Number(ageRange.min) && ageValue <= Number(ageRange.max);
@@ -311,7 +292,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
     return genderOk && ageGroupOk && ageOk;
   });
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (filterRef.current && !filterRef.current.contains(event.target)) {
@@ -326,7 +306,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [filterOpen]);
 
-  // Helper functions to get chart options based on type
   function getPassengerChartOption(type) {
     if (!passengerOption.series) return passengerOption;
     const base = { ...passengerOption };
@@ -356,7 +335,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
     if (type === 'pie') {
       return base;
     } else {
-      // Convert pie to bar/line
       const data = base.series[0].data;
       return {
         animation: false,
@@ -401,7 +379,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
     if (!revenueOption.series) return revenueOption;
     const base = { ...revenueOption };
     if (type === 'pie') {
-      // Convert to pie chart
       return {
         ...base,
         xAxis: undefined,
@@ -415,7 +392,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
         legend: { top: '5%', left: 'center' },
       };
     } else if (type === 'waterfall') {
-      // Waterfall chart logic
       const data = base.series[0].data;
       const xLabels = base.xAxis?.data || data.map((_, i) => `Item ${i + 1}`);
       let sum = 0;
@@ -461,7 +437,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8f9fa] font-['Inter',sans-serif]">
-      {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -499,9 +474,7 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-6">
-        {/* Time Period Selector */}
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-2xl font-semibold text-gray-800">Airport Analytics Dashboard</h2>
           <div className="bg-white rounded-full shadow-sm p-1 inline-flex">
@@ -510,7 +483,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             <button onClick={() => handlePeriodChange('year')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap rounded-button ${selectedPeriod === 'year' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Year</button>
           </div>
         </div>
-        {/* Date Range */}
         <div className="mb-6 bg-white rounded shadow-sm p-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <span className="text-gray-600">Current Period:</span>
@@ -523,7 +495,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded whitespace-nowrap rounded-button">Today</button>
           </div>
         </div>
-        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           {kpiData.map((kpi, idx) => (
             <div key={idx} className="bg-white rounded shadow-sm p-5">
@@ -541,9 +512,7 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             </div>
           ))}
         </div>
-        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Passenger Traffic Trend */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Passenger Traffic Trend</h3>
@@ -560,7 +529,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             </div>
             <ReactECharts option={getPassengerChartOption(passengerChartType)} style={{ height: 256 }} />
           </div>
-          {/* Airline Market Share */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Airline Market Share</h3>
@@ -579,7 +547,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Top Destinations */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Top Destinations</h3>
@@ -596,7 +563,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             </div>
             <ReactECharts option={getDestinationChartOption(destinationChartType)} style={{ height: 256 }} />
           </div>
-          {/* Revenue Analysis */}
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-medium text-gray-800">Revenue Analysis</h3>
@@ -621,7 +587,6 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             })()}
           </div>
         </div>
-        {/* Data Table */}
         <div className="grid grid-cols-1 gap-6 mb-6">
           <div className="bg-white rounded shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
@@ -738,140 +703,10 @@ const Dashboard = ({ goToFileUpload, uploadedData }) => {
             </div>
           </div>
         </div>
-        {/* AI & Security Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* AI Insights */}
-          <div className="bg-white rounded shadow-sm p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-medium text-gray-800">AI Insights</h3>
-              <div className="flex items-center"><span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Beta</span></div>
-            </div>
-            <div className="space-y-4">
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full text-primary flex-shrink-0"><RiLightbulbLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Passenger Trend Prediction</h4>
-                    <p className="text-xs text-gray-600 mt-1">Based on current data, we predict a 15% increase in passenger traffic next week due to upcoming holiday season.</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600 flex-shrink-0"><RiLineChartLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Revenue Optimization</h4>
-                    <p className="text-xs text-gray-600 mt-1">Retail spending could increase by 8% if duty-free promotions are scheduled during peak travel hours (10AM-2PM).</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-amber-100 rounded-full text-amber-600 flex-shrink-0"><RiFlightLandLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Emerging Destination</h4>
-                    <p className="text-xs text-gray-600 mt-1">We've detected a 23% increase in bookings to Bali, Indonesia. Consider allocating additional resources.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* ML Analysis */}
-          <div className="bg-white rounded shadow-sm p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-medium text-gray-800">ML Analysis</h3>
-              <div className="flex items-center gap-2">
-                <label className="custom-switch">
-                  <input type="checkbox" checked readOnly />
-                  <span className="switch-slider"></span>
-                </label>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-800">Anomaly Detection</h4>
-                  <p className="text-xs text-gray-500">Monitoring unusual patterns</p>
-                </div>
-                <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600"><RiCheckLine /></div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-800">Predictive Analytics</h4>
-                  <p className="text-xs text-gray-500">Forecasting future trends</p>
-                </div>
-                <div className="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full text-primary"><RiRefreshLine /></div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-800">Pattern Recognition</h4>
-                  <p className="text-xs text-gray-500">Identifying recurring behaviors</p>
-                </div>
-                <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600"><RiCheckLine /></div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-800">Data Classification</h4>
-                  <p className="text-xs text-gray-500">Categorizing passenger segments</p>
-                </div>
-                <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600"><RiCheckLine /></div>
-              </div>
-            </div>
-          </div>
-          {/* Security Status */}
-          <div className="bg-white rounded shadow-sm p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-medium text-gray-800">Security Status</h3>
-              <div className="flex items-center"><span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Secure</span></div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600 flex-shrink-0"><RiShieldCheckLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Data Encryption</h4>
-                    <p className="text-xs text-gray-500">256-bit AES encryption active</p>
-                  </div>
-                </div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600 flex-shrink-0"><RiLockLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Access Control</h4>
-                    <p className="text-xs text-gray-500">Role-based permissions enabled</p>
-                  </div>
-                </div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-full text-green-600 flex-shrink-0"><RiEyeLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Threat Monitoring</h4>
-                    <p className="text-xs text-gray-500">Real-time threat detection active</p>
-                  </div>
-                </div>
-              </div>
-              <div className="h-px bg-gray-200"></div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center bg-amber-100 rounded-full text-amber-600 flex-shrink-0"><RiHistoryLine /></div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">Audit Logs</h4>
-                    <p className="text-xs text-gray-500">Last audit: 2 days ago</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* The following three cards are being removed: AI Insights, ML Analysis, Security Status */}
         </div>
       </main>
-      {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-4">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
           <div className="text-sm text-gray-500">© 2025 AeroAnalytics. All rights reserved.</div>

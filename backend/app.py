@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import os
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager, verify_jwt_in_request_optional
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager, verify_jwt_in_request
 from werkzeug.security import generate_password_hash, check_password_hash
 from ml_service import predict_passengers
 from anomaly_detection import detect_anomalies
@@ -12,7 +12,7 @@ from database import (
     insert_passenger_record, insert_uploaded_file, init_db,
     insert_notification, get_notifications, mark_notification_read, mark_all_notifications_read,
     set_user_preference, get_user_preferences, insert_report_request, update_report_request_status, get_report_requests,
-    get_user_by_email, get_user_by_id, get_db_connection
+    get_user_by_email, get_user_by_id, get_db_connection, insert_user
 )
 from werkzeug.utils import secure_filename
 import smtplib
@@ -31,32 +31,27 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
-# Initialize Database
 init_db()
 
-# Secret key for JWT
 app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET_KEY')
 jwt = JWTManager(app)
 
-# Initialize Passenger Counter
 passenger_counter = PassengerCounter()
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Email utility
 EMAIL_FROM = os.environ.get('EMAIL_FROM', 'noreply@example.com')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.example.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USER = os.environ.get('EMAIL_USER', '')
 EMAIL_PASS = os.environ.get('EMAIL_PASS', '')
 
-# In-memory store for failed login attempts and lockout
 FAILED_LOGINS = {}
 LOCKOUTS = {}
 MAX_FAILED_ATTEMPTS = 5
-LOCKOUT_DURATION = 300  # 5 minutes in seconds
+LOCKOUT_DURATION = 300
 
 def send_email_notification(to_email, subject, message):
     try:
@@ -102,8 +97,7 @@ def login():
         password = data.get('password')
         user = get_user_by_email(email)
         user_id = user['id'] if user else None
-        now = time()
-        # Check lockout
+        now = time.time()
         if user_id in LOCKOUTS and now < LOCKOUTS[user_id]:
             logging.warning(f"User {email} is locked out from login.")
             if user and user['email']:
@@ -111,9 +105,7 @@ def login():
             if user_id:
                 insert_notification(user_id, 'login', 'Account locked due to too many failed login attempts.')
             return jsonify({'error': 'Account locked. Try again later.'}), 403
-        # Check credentials
         if user and check_password_hash(user['password_hash'], password):
-            # Reset failed attempts
             FAILED_LOGINS[user_id] = 0
             LOCKOUTS.pop(user_id, None)
             access_token = create_access_token(identity=user['id'])
@@ -123,7 +115,6 @@ def login():
             insert_notification(user_id, 'login', 'Login successful.')
             return jsonify({'access_token': access_token, 'user_id': user['id']})
         else:
-            # Failed login
             if user_id:
                 FAILED_LOGINS[user_id] = FAILED_LOGINS.get(user_id, 0) + 1
                 if FAILED_LOGINS[user_id] >= MAX_FAILED_ATTEMPTS:
@@ -185,15 +176,15 @@ def upload_file():
     try:
         user_id = None
         user_email = None
-        # Try to get user_id from JWT if available
         try:
-            verify_jwt_in_request_optional()
+            verify_jwt_in_request()
             user_id = get_jwt_identity()
             if user_id:
                 user = get_user_by_id(user_id)
                 user_email = user['email'] if user else None
         except Exception:
-            pass
+            user_id = None
+            user_email = None
         if 'file' not in request.files:
             if user_id:
                 insert_notification(user_id, 'upload', 'File upload failed: No file part.')
@@ -214,13 +205,10 @@ def upload_file():
                 send_email_notification(user_email, 'File Uploaded', f'Your file "{filename}" was uploaded successfully.')
         logging.info(f"File uploaded: {filename} by user {user_id}")
 
-        # --- New: Parse CSV and aggregate data ---
         try:
             df = pd.read_csv(filepath)
-            # Add age_group if 'age' column exists
             if 'age' in df.columns:
                 df['age_group'] = df['age'].apply(lambda x: 'Child' if pd.to_numeric(x, errors='coerce') < 18 else 'Adult')
-            # Example aggregation: sum passengers and revenue if columns exist
             total_passengers = int(df['passengers'].sum()) if 'passengers' in df.columns else None
             total_revenue = float(df['revenue'].sum()) if 'revenue' in df.columns else None
             rows = df.to_dict(orient='records')
@@ -260,7 +248,6 @@ def upload_file():
         except Exception as parse_err:
             logging.error(f"CSV parse error: {parse_err}")
             return jsonify({'error': 'File uploaded but could not parse CSV.'}), 400
-        # --- End new ---
 
         return jsonify({'message': 'File uploaded and processed successfully', 'filename': filename, 'data': processed})
     except Exception as e:
@@ -307,7 +294,6 @@ def get_passenger_data():
         logging.error(f"Error fetching passenger data: {e}")
         return jsonify({'error': 'Failed to fetch passenger data'}), 500
 
-# Notification endpoints
 @app.route('/api/notifications', methods=['GET'])
 @jwt_required()
 def api_get_notifications():
@@ -341,7 +327,6 @@ def api_mark_all_notifications_read():
         logging.error(f"Error marking all notifications as read: {e}")
         return jsonify({'error': 'Failed to mark all as read'}), 500
 
-# User Preferences endpoints
 @app.route('/api/preferences', methods=['GET'])
 @jwt_required()
 def api_get_preferences():
@@ -366,7 +351,6 @@ def api_set_preferences():
         logging.error(f"Error saving preferences: {e}")
         return jsonify({'error': 'Failed to save preferences'}), 500
 
-# Report request endpoints
 @app.route('/api/reports/request', methods=['POST'])
 @jwt_required()
 def api_request_report():
@@ -374,20 +358,11 @@ def api_request_report():
         user_id = get_jwt_identity()
         params = request.json
         params_str = json.dumps(params)
-        # Insert report request as pending
         insert_report_request(user_id, params_str, status='pending')
-        # Simulate report generation (mock, instant for now)
-        # In a real app, this could be async/background
-        # Generate mock result path
-        result_path = f"/reports/report_{user_id}_{int(datetime.utcnow().timestamp())}.json"
-        # Update report request as completed
-        # Get the latest report request id for this user
         reports = get_report_requests(user_id)
         report_id = reports[0]['id'] if reports else None
         update_report_request_status(report_id, 'completed', result_path)
-        # Insert notification (in-app)
         insert_notification(user_id, 'report', 'Your report is ready!')
-        # Send email notification
         user = get_user_by_id(user_id)
         if user and user['email']:
             send_email_notification(user['email'], 'Report Ready', 'Your requested report is ready to view/download.')

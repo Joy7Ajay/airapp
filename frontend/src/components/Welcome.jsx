@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 const Welcome = () => {
   const navigate = useNavigate();
   useEffect(() => {
-    // Trigger fade-in and slide-up animations after mount
     const fade = document.querySelector('.fade-in');
     const slide = document.querySelector('.slide-up');
     if (fade) fade.style.opacity = 1;

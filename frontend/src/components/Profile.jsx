@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-// Mock data (replace with real data/API integration later)
 const mockUser = {
   avatarUrl: '', // Could use a default image or initials
   name: 'Alex Johnson',
@@ -42,7 +41,6 @@ const mockUser = {
 const Profile = () => {
   const [user, setUser] = useState(mockUser);
 
-  // Section: Header
   const Header = () => (
     <div className="flex items-center gap-6 mb-6">
       <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-3xl font-bold text-blue-600">
@@ -60,7 +58,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: Contact & Account Info
   const ContactInfo = () => (
     <div className="mb-6 p-4 bg-gray-50 rounded shadow">
       <h2 className="text-xl font-semibold mb-2">Contact & Account Info</h2>
@@ -74,7 +71,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: User Preferences
   const Preferences = () => (
     <div className="mb-6 p-4 bg-gray-50 rounded shadow">
       <h2 className="text-xl font-semibold mb-2">User Preferences</h2>
@@ -87,7 +83,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: Recent Activity
   const RecentActivity = () => (
     <div className="mb-6 p-4 bg-gray-50 rounded shadow">
       <h2 className="text-xl font-semibold mb-2">Recent Activity</h2>
@@ -101,7 +96,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: Saved Analyses / Dashboards
   const SavedAnalyses = () => (
     <div className="mb-6 p-4 bg-gray-50 rounded shadow">
       <h2 className="text-xl font-semibold mb-2">Saved Analyses / Dashboards</h2>
@@ -122,7 +116,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: Quick Stats Widget
   const QuickStats = () => (
     <div className="mb-6 p-4 bg-blue-50 rounded shadow flex gap-8 items-center">
       <div>
@@ -144,7 +137,6 @@ const Profile = () => {
     </div>
   );
 
-  // Section: Account Management
   const AccountManagement = () => (
     <div className="mb-6 p-4 bg-gray-50 rounded shadow">
       <h2 className="text-xl font-semibold mb-2">Account Management</h2>

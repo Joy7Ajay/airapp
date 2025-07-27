@@ -7,7 +7,6 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import FileUpload from './components/FileUpload';
 import Settings from './components/Settings';
-// Assume Profile will be created or already exists
 import Profile from './components/Profile';
 import { DataProvider } from './components/DataContext';
 

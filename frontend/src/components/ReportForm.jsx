@@ -13,7 +13,6 @@ const groupByOptions = [
 ];
 
 const mockReportData = (metrics, groupBy) => {
-  // Generate mock data for the chart
   const categories = groupBy === 'airline'
     ? ['Delta', 'United', 'Emirates', 'Lufthansa']
     : groupBy === 'destination'
@@ -53,7 +52,6 @@ const ReportForm = ({ triggerNotification }) => {
   };
 
   const handleDownload = () => {
-    // Download as image (simple approach: use ECharts API in real app)
     alert('Download feature coming soon!');
   };
 

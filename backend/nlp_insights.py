@@ -1,8 +1,6 @@
 from transformers import pipeline
 
 def generate_insights(kpi_data):
-    """Generate natural language insights from KPIs"""
-    # Prepare prompt
     prompt = f"""
     Generate a business insight report based on airport KPIs:
     - Total passengers: {kpi_data['passengers']}
@@ -14,7 +12,6 @@ def generate_insights(kpi_data):
     Highlight key trends and recommendations.
     """
     
-    # Generate text with GPT-2
     generator = pipeline('text-generation', model='gpt2-medium')
     report = generator(
         prompt,
